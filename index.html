@@ -1,0 +1,1018 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>피알원 프로젝트 단가 DB v3</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
+
+/* ── TOKENS ── */
+:root {
+  --ink: #0d1117; --ink2: #374151; --muted: #6b7280; --subtle: #9ca3af;
+  --bg: #f1f5f9; --surface: #ffffff; --border: #e2e8f0; --border2: #cbd5e1;
+  --green: #16a34a; --green-bg: #dcfce7; --green-dark: #14532d;
+  --yellow: #d97706; --yellow-bg: #fef3c7;
+  --red: #dc2626; --red-bg: #fee2e2;
+  --blue: #2563eb; --blue-bg: #eff6ff;
+  --brand: #0f172a;
+  --radius: 12px; --radius-lg: 18px;
+  --shadow: 0 1px 3px rgba(0,0,0,.08), 0 4px 16px rgba(0,0,0,.06);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,.12);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 14px; }
+body { background: var(--bg); font-family: 'Noto Sans KR', -apple-system, sans-serif; color: var(--ink); }
+
+/* ── HEADER ── */
+.hd {
+  background: var(--brand); color: #fff;
+  padding: 0 28px; height: 52px;
+  display: flex; align-items: center; gap: 16px;
+  position: sticky; top: 0; z-index: 100;
+  box-shadow: 0 1px 0 rgba(255,255,255,.08);
+}
+.hd-title { font-size: 14px; font-weight: 700; letter-spacing: -.2px; }
+.hd-status {
+  margin-left: auto; display: flex; align-items: center; gap: 8px;
+  font-size: 11px; color: rgba(255,255,255,.5);
+}
+.status-dot { width: 7px; height: 7px; border-radius: 50%; background: #4ade80; flex-shrink: 0; }
+.status-dot.loading { background: #fbbf24; animation: pulse .8s infinite; }
+.status-dot.error { background: #f87171; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+.hd-btn {
+  padding: 5px 12px; border: 1px solid rgba(255,255,255,.2); border-radius: 7px;
+  background: transparent; color: rgba(255,255,255,.7); font-size: 11px;
+  font-family: 'Noto Sans KR', sans-serif; cursor: pointer; transition: all .15s;
+}
+.hd-btn:hover { border-color: rgba(255,255,255,.5); color: #fff; }
+
+/* ── LAYOUT ── */
+.wrap { max-width: 1440px; margin: 0 auto; padding: 20px 24px 60px; }
+
+/* ── KPI ── */
+.kpi-row { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-bottom: 20px; }
+.kpi {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 16px; box-shadow: var(--shadow);
+}
+.kpi .k-label { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 8px; }
+.kpi .k-val { font-size: 20px; font-weight: 800; color: var(--ink); letter-spacing: -.5px; line-height: 1; }
+.kpi .k-sub { font-size: 10px; color: var(--subtle); margin-top: 4px; }
+
+/* ── TABS ── */
+.tab-nav {
+  display: flex; gap: 0; background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); margin-bottom: 16px; padding: 4px; box-shadow: var(--shadow);
+}
+.tab-btn {
+  flex: 1; padding: 8px 14px; background: none; border: none; border-radius: 9px;
+  font-size: 12px; font-weight: 500; color: var(--muted); cursor: pointer;
+  font-family: 'Noto Sans KR', sans-serif; transition: all .15s; white-space: nowrap;
+}
+.tab-btn.on { background: var(--brand); color: #fff; font-weight: 700; }
+.tab-btn:hover:not(.on) { background: var(--bg); color: var(--ink); }
+
+/* ── PANEL ── */
+.panel { display: none; }
+.panel.on { display: block; }
+
+/* ── SEARCH CONTROLS ── */
+.search-box {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
+  padding: 16px; margin-bottom: 12px; box-shadow: var(--shadow);
+}
+.search-row { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; }
+.search-row:last-child { margin-bottom: 0; }
+.search-input {
+  flex: 1; padding: 10px 14px; border: 1.5px solid var(--border2); border-radius: var(--radius);
+  font-size: 13px; font-family: 'Noto Sans KR', sans-serif; color: var(--ink);
+  background: var(--bg); outline: none; transition: border-color .15s;
+}
+.search-input:focus { border-color: var(--blue); background: var(--surface); }
+.filter-select {
+  padding: 10px 12px; border: 1.5px solid var(--border2); border-radius: var(--radius);
+  font-size: 12px; font-family: 'Noto Sans KR', sans-serif; color: var(--ink2);
+  background: var(--surface); outline: none; cursor: pointer; white-space: nowrap;
+}
+.filter-select:focus { border-color: var(--blue); }
+.range-group { display: flex; align-items: center; gap: 6px; }
+.range-group label { font-size: 11px; color: var(--muted); white-space: nowrap; font-weight: 600; }
+.range-input {
+  width: 110px; padding: 9px 10px; border: 1.5px solid var(--border2); border-radius: var(--radius);
+  font-size: 12px; font-family: 'Noto Sans KR', sans-serif; color: var(--ink);
+  background: var(--surface); outline: none;
+}
+.range-input:focus { border-color: var(--blue); }
+.reset-btn {
+  padding: 9px 16px; background: var(--bg); border: 1px solid var(--border2);
+  border-radius: var(--radius); font-size: 12px; font-family: 'Noto Sans KR', sans-serif;
+  color: var(--muted); cursor: pointer; transition: all .15s; white-space: nowrap;
+}
+.reset-btn:hover { border-color: var(--red); color: var(--red); }
+.result-count { font-size: 12px; color: var(--muted); font-weight: 600; padding: 4px 0; }
+
+/* ── TABLE ── */
+.table-wrap {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
+  overflow: auto; max-height: 620px; box-shadow: var(--shadow);
+}
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+thead th {
+  position: sticky; top: 0; background: var(--brand); color: #fff;
+  padding: 10px 12px; text-align: left; white-space: nowrap;
+  font-size: 10px; font-weight: 700; letter-spacing: .4px; cursor: pointer;
+  user-select: none; z-index: 2;
+}
+thead th:hover { background: #1e293b; }
+thead th.sort-asc::after { content: ' ↑'; opacity: .7; }
+thead th.sort-desc::after { content: ' ↓'; opacity: .7; }
+tbody td { padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+tbody tr:hover td { background: #f8fafc; }
+tbody tr:last-child td { border-bottom: none; }
+.num { text-align: right; font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
+.center { text-align: center; }
+
+/* ── BADGES ── */
+.badge {
+  display: inline-block; padding: 2px 8px; border-radius: 999px;
+  font-size: 10px; font-weight: 700; white-space: nowrap;
+}
+.b-kol     { background: #dcfce7; color: #14532d; }
+.b-exp     { background: #dbeafe; color: #1e40af; }
+.b-viral   { background: #fef3c7; color: #92400e; }
+.b-mag     { background: #ede9fe; color: #5b21b6; }
+.b-prod    { background: #e0f2fe; color: #0c4a6e; }
+.b-op      { background: #f1f5f9; color: #475569; }
+.b-other   { background: #f1f5f9; color: #475569; }
+
+.plat-badge {
+  display: inline-block; padding: 2px 6px; border-radius: 4px;
+  font-size: 10px; font-weight: 800; letter-spacing: .2px;
+}
+.p-ig  { background: #fce7f3; color: #9d174d; }
+.p-yt  { background: #fee2e2; color: #991b1b; }
+.p-bl  { background: #dbeafe; color: #1e40af; }
+.p-etc { background: #f1f5f9; color: #64748b; }
+
+/* Margin rate colors */
+.mrg-high  { color: var(--green); font-weight: 700; }
+.mrg-mid   { color: var(--yellow); font-weight: 600; }
+.mrg-low   { color: var(--red); font-weight: 600; }
+.mrg-zero  { color: var(--subtle); }
+
+/* Highlight */
+mark { background: #fef08a; color: var(--ink); border-radius: 2px; padding: 0 1px; font-style: normal; }
+
+/* ── PROJECT CARDS ── */
+.proj-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+.proj-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
+  padding: 18px; box-shadow: var(--shadow); transition: box-shadow .15s;
+}
+.proj-card:hover { box-shadow: var(--shadow-lg); }
+.proj-card h3 { font-size: 13px; font-weight: 700; margin-bottom: 12px; color: var(--ink); }
+.proj-row { display: flex; justify-content: space-between; align-items: center; margin: 6px 0; font-size: 12px; }
+.proj-row span:first-child { color: var(--muted); }
+.proj-row strong { font-weight: 700; }
+.proj-bar-wrap { margin-top: 10px; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+.proj-bar { height: 100%; border-radius: 2px; transition: width .4s ease; }
+
+/* ── RATE TABLE ── */
+.rate-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.rate-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; }
+.rate-card .r-type { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); margin-bottom: 6px; }
+.rate-card .r-val { font-size: 16px; font-weight: 800; color: var(--ink); }
+.rate-card .r-sub { font-size: 10px; color: var(--subtle); margin-top: 2px; }
+
+/* ── ADD SECTION ── */
+.add-section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 24px; box-shadow: var(--shadow); }
+.add-section h2 { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+.add-section p { font-size: 13px; color: var(--muted); margin-bottom: 16px; line-height: 1.6; }
+
+/* How to section */
+.how-steps { display: flex; gap: 12px; flex-direction: column; }
+.how-step { display: flex; gap: 14px; align-items: flex-start; padding: 14px; background: var(--bg); border-radius: var(--radius); border: 1px solid var(--border); }
+.step-num { width: 28px; height: 28px; border-radius: 50%; background: var(--brand); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; flex-shrink: 0; }
+.step-body { flex: 1; }
+.step-body strong { display: block; font-size: 13px; margin-bottom: 4px; }
+.step-body p { font-size: 12px; color: var(--muted); }
+.code-block { background: #0d1117; color: #a5f3fc; font-family: ui-monospace, Menlo, monospace; font-size: 11px; padding: 10px 14px; border-radius: 8px; margin-top: 8px; overflow: auto; white-space: nowrap; }
+
+
+/* ── SHEET CONFIG ── */
+.config-card {
+  margin: 16px 0 20px; padding: 16px; background: var(--bg);
+  border: 1px solid var(--border); border-radius: var(--radius);
+}
+.config-card h3 { font-size: 13px; margin-bottom: 6px; color: var(--ink); }
+.config-card p { font-size: 12px; color: var(--muted); margin-bottom: 12px; line-height: 1.55; }
+.primary-btn {
+  padding: 10px 14px; background: var(--brand); color: #fff; border: none;
+  border-radius: var(--radius); font-size: 12px; font-family: 'Noto Sans KR', sans-serif;
+  font-weight: 700; cursor: pointer; white-space: nowrap;
+}
+.primary-btn:hover { background: #1e293b; }
+.config-status {
+  margin-top: 10px; padding: 10px 12px; border-radius: 9px;
+  background: #ecfeff; border: 1px solid #a5f3fc; color: #155e75;
+  font-size: 11px; line-height: 1.5; word-break: break-all;
+}
+.config-status.err { background:#fff1f2; border-color:#fecaca; color:#991b1b; }
+
+/* ── LOADING ── */
+.loading-overlay {
+  display: none; position: fixed; inset: 0; background: rgba(15,23,42,.6);
+  z-index: 999; align-items: center; justify-content: center;
+}
+.loading-overlay.on { display: flex; }
+.loading-card { background: var(--surface); border-radius: var(--radius-lg); padding: 32px 40px; text-align: center; box-shadow: var(--shadow-lg); }
+.spinner { width: 36px; height: 36px; border: 3px solid var(--border); border-top-color: var(--blue); border-radius: 50%; animation: spin .7s linear infinite; margin: 0 auto 14px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── NOTICE ── */
+.notice { background: #fffbeb; border: 1px solid #fde68a; border-radius: var(--radius); padding: 12px 16px; font-size: 12px; color: #92400e; line-height: 1.6; margin-bottom: 12px; }
+.notice-err { background: #fff1f2; border-color: #fecaca; color: #991b1b; }
+
+/* ── EMPTY ── */
+.empty { text-align: center; padding: 48px 0; color: var(--muted); font-size: 13px; }
+
+/* ── UTIL ── */
+.gap12 { gap: 12px; }
+
+@media (max-width: 900px) {
+  .kpi-row { grid-template-columns: repeat(3, 1fr); }
+  .search-row { flex-wrap: wrap; }
+  .tab-btn { font-size: 11px; padding: 7px 10px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ══ LOADING ═══════════════════════════════════════════════════ -->
+<div class="loading-overlay" id="loading-overlay">
+  <div class="loading-card">
+    <div class="spinner"></div>
+    <div style="font-size:14px;font-weight:700;color:var(--ink)">Google Sheets 데이터 로딩 중</div>
+    <div style="font-size:11px;color:var(--muted);margin-top:6px">잠시만 기다려주세요</div>
+  </div>
+</div>
+
+<!-- ══ HEADER ════════════════════════════════════════════════════ -->
+<div class="hd">
+  <div class="hd-title">피알원 프로젝트 단가 DB</div>
+  <div style="font-size:11px;color:rgba(255,255,255,.35)">허보람 AE · v3</div>
+  <div class="hd-status">
+    <div class="status-dot loading" id="status-dot"></div>
+    <span id="status-text">연결 중...</span>
+    <button class="hd-btn" onclick="openGuide()">⚙ 시트 설정</button>
+    <button class="hd-btn" onclick="loadData(true)">↻ 새로고침</button>
+  </div>
+</div>
+
+<div class="wrap">
+
+<!-- ══ KPI ══════════════════════════════════════════════════════ -->
+<div class="kpi-row" id="kpi-row">
+  <div class="kpi"><div class="k-label">총 레코드</div><div class="k-val" id="k-cnt">—</div><div class="k-sub">건</div></div>
+  <div class="kpi"><div class="k-label">프로젝트 수</div><div class="k-val" id="k-proj">—</div><div class="k-sub">개</div></div>
+  <div class="kpi"><div class="k-label">총 원가</div><div class="k-val" id="k-cost">—</div><div class="k-sub">원</div></div>
+  <div class="kpi"><div class="k-label">총 청구가</div><div class="k-val" id="k-charge">—</div><div class="k-sub">원</div></div>
+  <div class="kpi"><div class="k-label">총 마진</div><div class="k-val" id="k-margin">—</div><div class="k-sub">원</div></div>
+  <div class="kpi"><div class="k-label">평균 마진율</div><div class="k-val" id="k-mrate">—</div><div class="k-sub">전체 기준</div></div>
+</div>
+
+<!-- ══ TABS ══════════════════════════════════════════════════════ -->
+<div class="tab-nav">
+  <button class="tab-btn on" onclick="showTab('search',this)">🔍 통합 검색</button>
+  <button class="tab-btn" onclick="showTab('kol',this)">👤 KOL 단가</button>
+  <button class="tab-btn" onclick="showTab('projects',this)">📁 프로젝트</button>
+  <button class="tab-btn" onclick="showTab('rates',this)">📊 단가 기준표</button>
+  <button class="tab-btn" onclick="showTab('guide',this)">⚙️ 시트 연동 가이드</button>
+</div>
+
+<!-- ══ TAB 1: 통합 검색 ══════════════════════════════════════════ -->
+<div class="panel on" id="panel-search">
+  <div class="search-box">
+    <div class="search-row">
+      <input class="search-input" id="q" placeholder="🔍  이름·채널명·프로젝트·활동 검색 (공백으로 AND 검색, 예: 서기 릴스)" oninput="debounceSearch()">
+      <button class="reset-btn" onclick="resetSearch()">초기화</button>
+    </div>
+    <div class="search-row">
+      <select class="filter-select" id="f-project" onchange="renderSearch()"><option value="">프로젝트 전체</option></select>
+      <select class="filter-select" id="f-type" onchange="renderSearch()"><option value="">유형 전체</option></select>
+      <select class="filter-select" id="f-platform" onchange="renderSearch()"><option value="">플랫폼 전체</option></select>
+      <select class="filter-select" id="f-content" onchange="renderSearch()"><option value="">콘텐츠 전체</option></select>
+      <select class="filter-select" id="f-year" onchange="renderSearch()"><option value="">연도 전체</option></select>
+    </div>
+    <div class="search-row">
+      <div class="range-group">
+        <label>원가</label>
+        <input class="range-input" id="cost-min" placeholder="최솟값" type="number" min="0" oninput="renderSearch()">
+        <span style="color:var(--muted);font-size:12px">~</span>
+        <input class="range-input" id="cost-max" placeholder="최댓값" type="number" oninput="renderSearch()">
+      </div>
+      <div class="range-group" style="margin-left:16px">
+        <label>마진율</label>
+        <select class="filter-select" id="f-margin" onchange="renderSearch()">
+          <option value="">전체</option>
+          <option value="zero">마진 없음 (0%)</option>
+          <option value="low">15% 미만</option>
+          <option value="mid">15~30%</option>
+          <option value="high">30% 이상</option>
+        </select>
+      </div>
+      <span class="result-count" id="search-count" style="margin-left:auto"></span>
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table id="tbl-search">
+      <thead><tr></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ══ TAB 2: KOL 단가 ══════════════════════════════════════════ -->
+<div class="panel" id="panel-kol">
+  <div class="search-box">
+    <div class="search-row">
+      <input class="search-input" id="kq" placeholder="🔍  KOL명 · 채널명 검색" oninput="renderKol()">
+      <select class="filter-select" id="k-project" onchange="renderKol()"><option value="">프로젝트 전체</option></select>
+      <select class="filter-select" id="k-platform" onchange="renderKol()"><option value="">플랫폼 전체</option></select>
+      <select class="filter-select" id="k-content" onchange="renderKol()"><option value="">콘텐츠 전체</option></select>
+      <select class="filter-select" id="k-margin" onchange="renderKol()">
+        <option value="">마진율 전체</option>
+        <option value="zero">0% (패스스루)</option>
+        <option value="low">15% 미만</option>
+        <option value="mid">15~30%</option>
+        <option value="high">30% 이상</option>
+      </select>
+      <select class="filter-select" id="k-sort" onchange="renderKol()">
+        <option value="cost-desc">원가 높은 순</option>
+        <option value="cost-asc">원가 낮은 순</option>
+        <option value="margin-desc">마진율 높은 순</option>
+        <option value="margin-asc">마진율 낮은 순</option>
+      </select>
+    </div>
+    <div class="search-row">
+      <div class="range-group">
+        <label>원가 범위</label>
+        <input class="range-input" id="k-cost-min" placeholder="최솟값" type="number" oninput="renderKol()">
+        <span style="color:var(--muted);font-size:12px">~</span>
+        <input class="range-input" id="k-cost-max" placeholder="최댓값" type="number" oninput="renderKol()">
+      </div>
+      <span class="result-count" id="kol-count" style="margin-left:auto"></span>
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table id="tbl-kol">
+      <thead><tr></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ══ TAB 3: 프로젝트 ══════════════════════════════════════════ -->
+<div class="panel" id="panel-projects">
+  <div id="proj-grid" class="proj-grid"></div>
+</div>
+
+<!-- ══ TAB 4: 단가 기준표 ════════════════════════════════════════ -->
+<div class="panel" id="panel-rates">
+  <div class="notice">
+    동일 <b>유형 × 플랫폼 × 콘텐츠형태</b> 조합의 과거 집행 평균값입니다. 제안서 작성 전 단가 레퍼런스로 활용하세요.
+  </div>
+  <div class="table-wrap">
+    <table id="tbl-rates">
+      <thead><tr></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ══ TAB 5: 연동 가이드 ════════════════════════════════════════ -->
+<div class="panel" id="panel-guide">
+  <div class="add-section">
+    <h2>Google Sheets 연동 설정 방법</h2>
+    <p>이 HTML은 Google Sheets에서 데이터를 자동으로 불러옵니다.<br>
+    시트 내용이 바뀌면 <b>↻ 새로고침</b> 버튼을 누르거나 페이지를 새로고침하면 최신 데이터가 반영됩니다.</p>
+
+    <div class="config-card">
+      <h3>시트 URL 자동 설정</h3>
+      <p>
+        Google Sheets에서 복사한 <b>pubhtml 링크</b>나 <b>CSV 게시 링크</b>를 그대로 붙여넣으세요.<br>
+        저장하면 HTML이 자동으로 CSV 호출 URL로 변환하고, 이 브라우저에 설정을 저장합니다.
+      </p>
+      <div class="search-row">
+        <input class="search-input" id="sheet-url-input" placeholder="예: https://docs.google.com/spreadsheets/d/e/.../pubhtml">
+        <button class="primary-btn" onclick="saveSheetUrlFromInput()">저장 후 불러오기</button>
+        <button class="reset-btn" onclick="resetSheetUrl()">기본값 복구</button>
+      </div>
+      <div class="config-status" id="sheet-url-status">
+        URL을 붙여넣고 저장하면 이 페이지에서 바로 데이터를 다시 불러옵니다.
+      </div>
+    </div>
+
+    <div class="how-steps" style="margin-top:20px">
+      <div class="how-step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <strong>시트를 웹에 게시하기</strong>
+          <p>Google Sheets 열기 → <b>파일 → 공유 및 내보내기 → 웹에 게시</b><br>
+          게시할 시트: <b>📋 전체 데이터</b> 선택 → 형식: <b>쉼표로 구분된 값(.csv)</b> → 게시 클릭</p>
+        </div>
+      </div>
+      <div class="how-step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <strong>게시 URL 복사</strong>
+          <p>게시 후 나오는 URL을 복사하세요. 형태는 아래와 같습니다:</p>
+          <div class="code-block">https://docs.google.com/spreadsheets/d/[ID]/pub?gid=[GID]&amp;single=true&amp;output=csv</div>
+        </div>
+      </div>
+      <div class="how-step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <strong>페이지에서 URL 저장</strong>
+          <p>위의 <b>시트 URL 자동 설정</b> 영역에 게시 URL을 붙여넣고 <b>저장 후 불러오기</b>를 누르세요.<br>
+          HTML 파일을 직접 열어 수정하지 않아도 됩니다.</p>
+          <div class="code-block">pubhtml 링크 → 자동으로 pub?output=csv 링크로 변환</div>
+        </div>
+      </div>
+      <div class="how-step">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <strong>GitHub Pages에 올리기 (팀 공유)</strong>
+          <p>HTML 파일을 <b>index.html</b>로 이름 변경 → GitHub 새 저장소에 업로드 → <br>
+          Settings → Pages → main branch로 배포 → 팀원에게 URL 공유</p>
+          <div class="code-block">https://[계정명].github.io/[저장소명]/</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:24px;padding-top:20px;border-top:1px solid var(--border)">
+      <h3 style="font-size:13px;margin-bottom:12px">팀 업무 흐름</h3>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--ink2)">
+        <span style="background:var(--bg);border:1px solid var(--border);padding:6px 12px;border-radius:var(--radius)">📝 캠페인 종료</span>
+        <span style="color:var(--muted)">→</span>
+        <span style="background:var(--green-bg);border:1px solid #86efac;padding:6px 12px;border-radius:var(--radius);color:var(--green-dark)">담당 AE가 Google Sheets에 행 추가</span>
+        <span style="color:var(--muted)">→</span>
+        <span style="background:var(--blue-bg);border:1px solid #93c5fd;padding:6px 12px;border-radius:var(--radius);color:#1e40af">이 페이지에서 새로고침</span>
+        <span style="color:var(--muted)">→</span>
+        <span style="background:var(--bg);border:1px solid var(--border);padding:6px 12px;border-radius:var(--radius)">제안서 전 단가 검색·활용</span>
+      </div>
+    </div>
+
+    <div style="margin-top:20px;padding:14px;background:var(--bg);border-radius:var(--radius);border:1px solid var(--border)">
+      <div style="font-size:11px;font-weight:700;color:var(--muted);margin-bottom:8px">현재 연결된 시트 URL</div>
+      <div style="font-family:monospace;font-size:11px;color:var(--ink2);word-break:break-all" id="current-url">—</div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /wrap -->
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// Google Sheets URL 설정
+// - pubhtml, pub?output=csv, export?format=csv URL을 모두 입력 가능
+// - 페이지의 ⚙ 시트 설정 탭에서 URL을 저장하면 localStorage에 보관됨
+// ═══════════════════════════════════════════════════════════════
+const DEFAULT_SHEETS_SOURCE_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRW8-sK2sEA3sn6xAB3dHK-0cbF09v6Iue-XexK8t1vH7YiHGCHKtyu2l-_zSNryg/pub?gid=2074976281&single=true&output=csv';
+const SHEET_STORAGE_KEY = 'prone_cost_dashboard_sheet_source_url_v2';
+
+function getQuerySheetUrl() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get('sheetUrl') || params.get('sheet') || '';
+}
+
+function normalizeSheetsUrl(rawUrl) {
+  const raw = (rawUrl == null ? '' : String(rawUrl)).trim().replace(/&amp;/g, '&');
+  if (!raw) return '';
+
+  try {
+    const u = new URL(raw);
+    const isGoogleSheet = u.hostname.includes('docs.google.com') && u.pathname.includes('/spreadsheets/');
+    if (!isGoogleSheet) return raw;
+
+    // Published Google Sheet HTML URL:
+    // /spreadsheets/d/e/{publishedId}/pubhtml  →  /pub?output=csv
+    if (u.pathname.endsWith('/pubhtml')) {
+      u.pathname = u.pathname.replace(/\/pubhtml$/, '/pub');
+      u.searchParams.delete('widget');
+      u.searchParams.delete('headers');
+      u.searchParams.set('output', 'csv');
+      if (u.searchParams.get('gid')) u.searchParams.set('single', 'true');
+      return u.toString();
+    }
+
+    // Published CSV/HTML URL:
+    // /pub?... → force CSV output
+    if (u.pathname.endsWith('/pub')) {
+      u.searchParams.set('output', 'csv');
+      if (u.searchParams.get('gid')) u.searchParams.set('single', 'true');
+      return u.toString();
+    }
+
+    // Normal Google Sheet edit/view URL:
+    // /spreadsheets/d/{sheetId}/edit#gid=123 → /export?format=csv&gid=123
+    const idMatch = u.pathname.match(/\/spreadsheets\/d\/([^/]+)/);
+    if (idMatch) {
+      const gidFromSearch = u.searchParams.get('gid');
+      const gidFromHash = (u.hash.match(/gid=(\d+)/) || [])[1];
+      const gid = gidFromSearch || gidFromHash || '';
+      return `https://docs.google.com/spreadsheets/d/${idMatch[1]}/export?format=csv${gid ? `&gid=${gid}` : ''}`;
+    }
+
+    return raw;
+  } catch(e) {
+    return raw;
+  }
+}
+
+const queryUrl = getQuerySheetUrl();
+if (queryUrl) localStorage.setItem(SHEET_STORAGE_KEY, queryUrl);
+
+let SHEETS_SOURCE_URL = queryUrl || localStorage.getItem(SHEET_STORAGE_KEY) || DEFAULT_SHEETS_SOURCE_URL;
+let SHEETS_CSV_URL = normalizeSheetsUrl(SHEETS_SOURCE_URL);
+
+// ── STATE ─────────────────────────────────────────────────────
+let DATA = [];
+let sortCol = null, sortDir = 1;
+let searchTimer = null;
+
+// ── UTIL ──────────────────────────────────────────────────────
+const w = v => { const n = Number(v)||0; if (n === 0) return '-'; if (n >= 1e8) return (n/1e8).toFixed(1)+'억'; if (n >= 1e4) return (n/1e4).toFixed(0)+'만'; return n.toLocaleString(); };
+const wFull = v => (Number(v)||0).toLocaleString('ko-KR');
+const pct = v => { const n = Number(v)||0; return (n*100).toFixed(1)+'%'; };
+const txt = v => (v == null) ? '' : String(v);
+const num = v => Number(txt(v).replace(/,/g,'')) || 0;
+const uniq = (arr, k) => [...new Set(arr.map(r => txt(r[k])).filter(Boolean))].sort((a,b) => a.localeCompare(b,'ko'));
+
+function fillSel(id, label, vals) {
+  const el = document.getElementById(id);
+  const cur = el?.value;
+  if (!el) return;
+  el.innerHTML = `<option value="">${label}</option>` + vals.map(v=>`<option${v===cur?' selected':''}>${v}</option>`).join('');
+}
+
+function mrgClass(v) {
+  const n = Number(v)||0;
+  if (n === 0) return 'mrg-zero';
+  if (n >= 0.3) return 'mrg-high';
+  if (n >= 0.15) return 'mrg-mid';
+  return 'mrg-low';
+}
+
+function typeBadge(t) {
+  const map = {
+    'KOL':'b-kol','체험단':'b-exp','바이럴':'b-viral','매거진':'b-mag','매거진/파워페이지':'b-mag',
+    '파워페이지':'b-mag','영상제작':'b-prod','챌린지운영':'b-prod','시딩/샘플링':'b-op',
+    '기획운영':'b-op','기획/수수료':'b-op','팝업/오프라인':'b-op','운영대행비':'b-op','기타':'b-other'
+  };
+  return `<span class="badge ${map[t]||'b-other'}">${txt(t)||'—'}</span>`;
+}
+
+function platBadge(p) {
+  const map = {'IG':'p-ig','YT':'p-yt','BL':'p-bl','IG/YT':'p-ig'};
+  return `<span class="plat-badge ${map[p]||'p-etc'}">${txt(p)||'—'}</span>`;
+}
+
+
+// ── SHEET URL SETUP ────────────────────────────────────────────
+function getFetchUrl(baseUrl, manual = false) {
+  if (!baseUrl) return '';
+  const sep = baseUrl.includes('?') ? '&' : '?';
+  return manual ? `${baseUrl}${sep}_=${Date.now()}` : baseUrl;
+}
+
+function syncSheetUrlUi(message = '', isError = false) {
+  const input = document.getElementById('sheet-url-input');
+  const current = document.getElementById('current-url');
+  const status = document.getElementById('sheet-url-status');
+
+  if (input) input.value = SHEETS_SOURCE_URL || '';
+  if (current) current.textContent = SHEETS_CSV_URL || '미설정';
+
+  if (status) {
+    status.className = 'config-status' + (isError ? ' err' : '');
+    status.innerHTML = message || `현재 호출 URL: <b>${SHEETS_CSV_URL || '미설정'}</b>`;
+  }
+}
+
+function saveSheetUrlFromInput() {
+  const input = document.getElementById('sheet-url-input');
+  const raw = txt(input?.value).trim();
+  if (!raw) {
+    syncSheetUrlUi('URL이 비어 있습니다. Google Sheets 게시 링크를 붙여넣어 주세요.', true);
+    return;
+  }
+
+  SHEETS_SOURCE_URL = raw;
+  SHEETS_CSV_URL = normalizeSheetsUrl(raw);
+  localStorage.setItem(SHEET_STORAGE_KEY, SHEETS_SOURCE_URL);
+  syncSheetUrlUi(`저장 완료. 변환된 CSV URL로 다시 불러오는 중입니다.<br><b>${SHEETS_CSV_URL}</b>`);
+  loadData(true);
+}
+
+function resetSheetUrl() {
+  localStorage.removeItem(SHEET_STORAGE_KEY);
+  SHEETS_SOURCE_URL = DEFAULT_SHEETS_SOURCE_URL;
+  SHEETS_CSV_URL = normalizeSheetsUrl(SHEETS_SOURCE_URL);
+  syncSheetUrlUi('기본 게시 URL로 복구했습니다. 다시 불러오는 중입니다.');
+  loadData(true);
+}
+
+function openGuide() {
+  const btn = [...document.querySelectorAll('.tab-btn')].find(b => b.textContent.includes('가이드'));
+  if (btn) showTab('guide', btn);
+}
+
+// ── CSV PARSER ────────────────────────────────────────────────
+function parseCSV(csv) {
+  const lines = csv.split(/\r?\n/);
+  if (!lines.length) return [];
+  const parseRow = line => {
+    const result = []; let cur = ''; let inQ = false;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (c === '"') { if (inQ && line[i+1] === '"') { cur += '"'; i++; } else inQ = !inQ; }
+      else if (c === ',' && !inQ) { result.push(cur.trim()); cur = ''; }
+      else cur += c;
+    }
+    result.push(cur.trim());
+    return result;
+  };
+  const headers = parseRow(lines[0]);
+  return lines.slice(1).filter(l => l.trim()).map(line => {
+    const cells = parseRow(line);
+    const obj = {};
+    headers.forEach((h, i) => {
+      let v = cells[i] ?? '';
+      v = v.replace(/^"|"$/g,'');
+      // Auto-convert numbers
+      if (v !== '' && !isNaN(v) && v.trim() !== '') obj[h] = Number(v);
+      else obj[h] = v;
+    });
+    return obj;
+  });
+}
+
+// ── FETCH WITH TIMEOUT ─────────────────────────────────────────
+async function fetchWithTimeout(url, options = {}, timeoutMs = 15000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } catch (e) {
+    if (e.name === 'AbortError') {
+      throw new Error(`연결 시간이 ${Math.round(timeoutMs/1000)}초를 넘었습니다. 게시 URL 또는 네트워크/CORS 문제를 확인해주세요.`);
+    }
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// ── LOAD DATA ─────────────────────────────────────────────────
+async function loadData(manual = false) {
+  setStatus('loading', manual ? '새로고침 중...' : '연결 중...');
+  syncSheetUrlUi();
+  if (manual) document.getElementById('loading-overlay').classList.add('on');
+
+  try {
+    if (!SHEETS_CSV_URL) throw new Error('시트 URL이 설정되지 않았습니다');
+
+    const res = await fetchWithTimeout(getFetchUrl(SHEETS_CSV_URL, manual), {}, 15000);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+    const csv = await res.text();
+    if (/^\s*</.test(csv)) {
+      throw new Error('CSV가 아니라 HTML 문서가 반환되었습니다. 웹 게시 형식을 CSV로 선택했는지 확인해주세요.');
+    }
+
+    const parsed = parseCSV(csv);
+    if (!parsed.length) throw new Error('데이터가 비어있습니다');
+
+    const sample = parsed[0] || {};
+    const required = ['프로젝트','유형','원가(실비)','청구가(예산)'];
+    const missing = required.filter(k => !(k in sample));
+    if (missing.length) {
+      throw new Error(`필수 컬럼이 없습니다: ${missing.join(', ')}. 게시된 시트가 '📋 전체 데이터'인지 확인해주세요.`);
+    }
+
+    DATA = parsed.filter(r => r['프로젝트'] || r['이름/활동명'] || r['KOL/채널명']);
+    if (!DATA.length) throw new Error('유효한 데이터 행이 없습니다');
+
+    onDataLoaded();
+    const t = new Date().toLocaleTimeString('ko-KR', {hour:'2-digit',minute:'2-digit'});
+    setStatus('ok', `${DATA.length}건 · ${t} 업데이트`);
+    syncSheetUrlUi(`연동 성공: ${DATA.length.toLocaleString()}건을 불러왔습니다.<br>현재 호출 URL: <b>${SHEETS_CSV_URL}</b>`);
+  } catch(e) {
+    setStatus('error', '연결 실패 — 시트 게시 URL/게시 시트를 확인해주세요');
+    console.error('Sheets load error:', e);
+    syncSheetUrlUi(`연동 실패: ${e.message}<br><br>현재 호출 URL: <b>${SHEETS_CSV_URL || '미설정'}</b>`, true);
+    document.getElementById('loading-overlay').classList.remove('on');
+    return;
+  }
+  document.getElementById('loading-overlay').classList.remove('on');
+}
+
+function setStatus(type, msg) {
+  const dot = document.getElementById('status-dot');
+  dot.className = 'status-dot' + (type === 'loading' ? ' loading' : type === 'error' ? ' error' : '');
+  document.getElementById('status-text').textContent = msg;
+}
+
+function onDataLoaded() {
+  updateKPIs();
+  initFilters();
+  renderSearch();
+  syncSheetUrlUi();
+}
+
+// ── KPIs ─────────────────────────────────────────────────────
+function updateKPIs() {
+  const cost   = DATA.reduce((s,r) => s + num(r['원가(실비)']), 0);
+  const charge = DATA.reduce((s,r) => s + num(r['청구가(예산)']), 0);
+  const margin = charge - cost;
+  const mrate  = charge > 0 ? margin/charge : 0;
+  const projs  = new Set(DATA.map(r=>r['프로젝트'])).size;
+
+  document.getElementById('k-cnt').textContent = DATA.length.toLocaleString();
+  document.getElementById('k-proj').textContent = projs;
+  document.getElementById('k-cost').textContent = w(cost);
+  document.getElementById('k-charge').textContent = w(charge);
+  document.getElementById('k-margin').textContent = w(margin);
+  document.getElementById('k-mrate').innerHTML = `<span class="${mrgClass(mrate)}">${pct(mrate)}</span>`;
+}
+
+// ── INIT FILTERS ──────────────────────────────────────────────
+function initFilters() {
+  const projs    = uniq(DATA, '프로젝트');
+  const types    = uniq(DATA, '유형');
+  const plats    = uniq(DATA, '플랫폼');
+  const contents = uniq(DATA, '콘텐츠형태');
+  const years    = uniq(DATA, '캠페인월').reverse();
+
+  fillSel('f-project', '프로젝트 전체', projs);
+  fillSel('f-type',    '유형 전체',      types);
+  fillSel('f-platform','플랫폼 전체',    plats);
+  fillSel('f-content', '콘텐츠 전체',    contents);
+  fillSel('f-year',    '연도 전체',      years);
+
+  const kolData = DATA.filter(r => r['유형'] === 'KOL');
+  fillSel('k-project', '프로젝트 전체', projs);
+  fillSel('k-platform','플랫폼 전체',    uniq(kolData, '플랫폼'));
+  fillSel('k-content', '콘텐츠 전체',    uniq(kolData, '콘텐츠형태'));
+}
+
+// ── SEARCH ────────────────────────────────────────────────────
+function debounceSearch() {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(renderSearch, 150);
+}
+
+function resetSearch() {
+  ['q','f-project','f-type','f-platform','f-content','f-year','f-margin','cost-min','cost-max'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  renderSearch();
+}
+
+function applyBaseFilters(pool) {
+  const q       = txt(document.getElementById('q')?.value).toLowerCase().trim();
+  const proj    = document.getElementById('f-project')?.value;
+  const type    = document.getElementById('f-type')?.value;
+  const plat    = document.getElementById('f-platform')?.value;
+  const content = document.getElementById('f-content')?.value;
+  const year    = document.getElementById('f-year')?.value;
+  const margin  = document.getElementById('f-margin')?.value;
+  const costMin = num(document.getElementById('cost-min')?.value);
+  const costMax = num(document.getElementById('cost-max')?.value);
+  const terms   = q ? q.split(/\s+/).filter(Boolean) : [];
+
+  return pool.filter(r => {
+    const haystack = Object.values(r).map(txt).join(' ').toLowerCase();
+    if (terms.length && !terms.every(t => haystack.includes(t))) return false;
+    if (proj    && r['프로젝트']   !== proj)    return false;
+    if (type    && r['유형']       !== type)    return false;
+    if (plat    && r['플랫폼']     !== plat)    return false;
+    if (content && r['콘텐츠형태'] !== content) return false;
+    if (year    && txt(r['캠페인월']) !== year) return false;
+    const c = num(r['원가(실비)']);
+    if (costMin && c < costMin) return false;
+    if (costMax && c > costMax) return false;
+    const m = num(r['마진율']);
+    if (margin === 'zero'  && m !== 0) return false;
+    if (margin === 'low'   && (m === 0 || m >= 0.15)) return false;
+    if (margin === 'mid'   && (m < 0.15 || m >= 0.3)) return false;
+    if (margin === 'high'  && m < 0.3) return false;
+    return true;
+  });
+}
+
+function highlight(str, terms) {
+  if (!terms.length) return txt(str);
+  let s = txt(str);
+  terms.forEach(t => {
+    const re = new RegExp(t.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'), 'gi');
+    s = s.replace(re, m => `<mark>${m}</mark>`);
+  });
+  return s;
+}
+
+function renderSearch() {
+  const rows = applyBaseFilters(DATA);
+  const q = txt(document.getElementById('q')?.value).toLowerCase().trim();
+  const terms = q ? q.split(/\s+/).filter(Boolean) : [];
+  const hl = s => highlight(s, terms);
+
+  document.getElementById('search-count').textContent = `검색 결과 ${rows.length.toLocaleString()}건`;
+
+  const cols = ['브랜드','프로젝트','캠페인월','유형','이름/활동명','KOL/채널명','플랫폼','콘텐츠형태','수량','원가(실비)','청구가(예산)','마진','마진율','비고'];
+
+  const thead = document.querySelector('#tbl-search thead tr');
+  thead.innerHTML = cols.map(c => `<th onclick="sortTable('search','${c}')">${c}</th>`).join('');
+
+  const tbody = document.querySelector('#tbl-search tbody');
+  if (!rows.length) { tbody.innerHTML = '<tr><td colspan="'+ cols.length +'" class="empty">검색 결과가 없어요</td></tr>'; return; }
+
+  tbody.innerHTML = rows.slice(0, 500).map(r => '<tr>' + cols.map(c => {
+    const v = r[c];
+    if (c === '유형') return `<td>${typeBadge(txt(v))}</td>`;
+    if (c === '플랫폼') return `<td class="center">${platBadge(txt(v))}</td>`;
+    if (c === '마진율') return `<td class="num ${mrgClass(v)}">${pct(v)}</td>`;
+    if (['원가(실비)','청구가(예산)','마진'].includes(c)) return `<td class="num">${wFull(v)}</td>`;
+    if (['수량','캠페인월'].includes(c)) return `<td class="center">${txt(v)}</td>`;
+    if (c === '이름/활동명' || c === 'KOL/채널명') return `<td>${hl(v)}</td>`;
+    return `<td>${hl(v)}</td>`;
+  }).join('') + '</tr>').join('');
+}
+
+// ── KOL TAB ───────────────────────────────────────────────────
+function renderKol() {
+  const q     = txt(document.getElementById('kq')?.value).toLowerCase().trim();
+  const proj  = document.getElementById('k-project')?.value;
+  const plat  = document.getElementById('k-platform')?.value;
+  const cont  = document.getElementById('k-content')?.value;
+  const marg  = document.getElementById('k-margin')?.value;
+  const sort2 = document.getElementById('k-sort')?.value || 'cost-desc';
+  const cMin  = num(document.getElementById('k-cost-min')?.value);
+  const cMax  = num(document.getElementById('k-cost-max')?.value);
+  const terms = q ? q.split(/\s+/).filter(Boolean) : [];
+
+  let rows = DATA.filter(r => r['유형'] === 'KOL');
+  rows = rows.filter(r => {
+    const hay = [r['이름/활동명'],r['KOL/채널명'],r['프로젝트'],r['비고']].map(txt).join(' ').toLowerCase();
+    if (terms.length && !terms.every(t => hay.includes(t))) return false;
+    if (proj && r['프로젝트'] !== proj) return false;
+    if (plat && r['플랫폼']   !== plat) return false;
+    if (cont && r['콘텐츠형태'] !== cont) return false;
+    const c = num(r['원가(실비)']); const m = num(r['마진율']);
+    if (cMin && c < cMin) return false;
+    if (cMax && c > cMax) return false;
+    if (marg === 'zero'  && m !== 0) return false;
+    if (marg === 'low'   && (m === 0 || m >= 0.15)) return false;
+    if (marg === 'mid'   && (m < 0.15 || m >= 0.3)) return false;
+    if (marg === 'high'  && m < 0.3) return false;
+    return true;
+  });
+
+  // Sort
+  rows.sort((a,b) => {
+    if (sort2 === 'cost-desc') return num(b['원가(실비)']) - num(a['원가(실비)']);
+    if (sort2 === 'cost-asc')  return num(a['원가(실비)']) - num(b['원가(실비)']);
+    if (sort2 === 'margin-desc') return num(b['마진율']) - num(a['마진율']);
+    if (sort2 === 'margin-asc')  return num(a['마진율']) - num(b['마진율']);
+    return 0;
+  });
+
+  document.getElementById('kol-count').textContent = `${rows.length.toLocaleString()}건`;
+
+  const cols = ['프로젝트','캠페인월','이름/활동명','KOL/채널명','플랫폼','콘텐츠형태','수량','원가(실비)','청구가(예산)','1인 원가','1인 청구가','마진','마진율','비고'];
+
+  const thead = document.querySelector('#tbl-kol thead tr');
+  thead.innerHTML = cols.map(c => `<th>${c}</th>`).join('');
+
+  const tbody = document.querySelector('#tbl-kol tbody');
+  if (!rows.length) { tbody.innerHTML = '<tr><td colspan="'+ cols.length +'" class="empty">검색 결과 없음</td></tr>'; return; }
+
+  tbody.innerHTML = rows.slice(0, 300).map(r => {
+    const hl = s => highlight(s, terms);
+    const qty = num(r['수량']) || 1;
+    const cost = num(r['원가(실비)']);
+    const charge = num(r['청구가(예산)']);
+    const perCost = qty > 1 ? cost / qty : cost;
+    const perCharge = qty > 1 ? charge / qty : charge;
+    return '<tr>' + cols.map(c => {
+      if (c === '플랫폼')       return `<td class="center">${platBadge(txt(r[c]))}</td>`;
+      if (c === '마진율')       return `<td class="num ${mrgClass(r[c])}">${pct(r[c])}</td>`;
+      if (c === '원가(실비)'||c === '청구가(예산)'||c === '마진') return `<td class="num">${wFull(r[c])}</td>`;
+      if (c === '1인 원가')     return `<td class="num" style="color:var(--muted)">${wFull(perCost)}</td>`;
+      if (c === '1인 청구가')   return `<td class="num" style="color:var(--muted)">${wFull(perCharge)}</td>`;
+      if (c === '수량'||c === '캠페인월') return `<td class="center">${txt(r[c])}</td>`;
+      if (c === '이름/활동명'||c === 'KOL/채널명') return `<td>${hl(r[c])}</td>`;
+      return `<td>${txt(r[c])}</td>`;
+    }).join('') + '</tr>';
+  }).join('');
+}
+
+// ── PROJECTS TAB ──────────────────────────────────────────────
+function renderProjects() {
+  const map = {};
+  DATA.forEach(r => {
+    const k = r['프로젝트'] || '미지정';
+    if (!map[k]) map[k] = { rows:[], cost:0, charge:0, margin:0 };
+    map[k].rows.push(r);
+    map[k].cost   += num(r['원가(실비)']);
+    map[k].charge += num(r['청구가(예산)']);
+    map[k].margin += num(r['마진']);
+  });
+
+  const allCharge = Object.values(map).reduce((s,g) => s + g.charge, 0);
+  const COLORS = ['#2563eb','#16a34a','#d97706','#dc2626','#7c3aed','#0891b2'];
+
+  document.getElementById('proj-grid').innerHTML = Object.entries(map).map(([name, g], i) => {
+    const mr = g.charge > 0 ? g.margin/g.charge : 0;
+    const types = [...new Set(g.rows.map(r=>r['유형']))].filter(Boolean).slice(0,4);
+    const color = COLORS[i % COLORS.length];
+    const share = allCharge > 0 ? g.charge/allCharge*100 : 0;
+    return `<div class="proj-card">
+      <h3 style="color:${color}">${name}</h3>
+      <div class="proj-row"><span>행수</span><strong>${g.rows.length}건</strong></div>
+      <div class="proj-row"><span>원가</span><strong>${w(g.cost)}원</strong></div>
+      <div class="proj-row"><span>청구가</span><strong>${w(g.charge)}원</strong></div>
+      <div class="proj-row"><span>마진</span><strong>${w(g.margin)}원</strong></div>
+      <div class="proj-row"><span>마진율</span><strong class="${mrgClass(mr)}">${pct(mr)}</strong></div>
+      <div class="proj-row" style="flex-wrap:wrap;gap:4px"><span>유형</span><div style="display:flex;flex-wrap:wrap;gap:3px">${types.map(t=>typeBadge(t)).join('')}</div></div>
+      <div class="proj-bar-wrap"><div class="proj-bar" style="width:${Math.min(share,100).toFixed(1)}%;background:${color}"></div></div>
+      <div style="font-size:10px;color:var(--subtle);margin-top:4px">청구 비중 ${share.toFixed(1)}%</div>
+    </div>`;
+  }).join('');
+}
+
+// ── RATES TAB ─────────────────────────────────────────────────
+function renderRates() {
+  const map = {};
+  DATA.forEach(r => {
+    const key = [r['유형'],r['플랫폼'],r['콘텐츠형태']].join('||');
+    if (!map[key]) map[key] = {건수:0, cost_sum:0, charge_sum:0, margin_sum:0};
+    map[key].건수++;
+    map[key].cost_sum   += num(r['원가(실비)']);
+    map[key].charge_sum += num(r['청구가(예산)']);
+    map[key].margin_sum += num(r['마진']);
+  });
+
+  const rows = Object.entries(map).map(([k,g]) => {
+    const [유형,플랫폼,콘텐츠형태] = k.split('||');
+    const avgCost   = g.cost_sum   / g.건수;
+    const avgCharge = g.charge_sum / g.건수;
+    const avgMargin = g.charge_sum > 0 ? g.margin_sum/g.charge_sum : 0;
+    return {유형,플랫폼,콘텐츠형태,건수:g.건수,avgCost,avgCharge,avgMargin};
+  }).filter(r => r.avgCost > 0 || r.avgCharge > 0)
+    .sort((a,b) => (a.유형||'').localeCompare(b.유형||'','ko') || b.avgCharge - a.avgCharge);
+
+  const cols = ['유형','플랫폼','콘텐츠형태','건수','평균 원가','평균 청구가','평균 마진율'];
+  const thead = document.querySelector('#tbl-rates thead tr');
+  thead.innerHTML = cols.map(c=>`<th>${c}</th>`).join('');
+  const tbody = document.querySelector('#tbl-rates tbody');
+  tbody.innerHTML = rows.map(r => `<tr>
+    <td>${typeBadge(r.유형)}</td>
+    <td class="center">${platBadge(r.플랫폼)}</td>
+    <td class="center"><small>${txt(r.콘텐츠형태)||'—'}</small></td>
+    <td class="center">${r.건수}</td>
+    <td class="num">${wFull(r.avgCost)}</td>
+    <td class="num">${wFull(r.avgCharge)}</td>
+    <td class="num ${mrgClass(r.avgMargin)}">${pct(r.avgMargin)}</td>
+  </tr>`).join('');
+}
+
+// ── SORT ──────────────────────────────────────────────────────
+function sortTable(tab, col) {
+  if (sortCol === col) sortDir *= -1;
+  else { sortCol = col; sortDir = -1; }
+  if (tab === 'search') renderSearch();
+}
+
+// ── TAB SWITCH ────────────────────────────────────────────────
+function showTab(id, btn) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('on'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('on'));
+  document.getElementById('panel-'+id).classList.add('on');
+  btn.classList.add('on');
+  if (id === 'projects') renderProjects();
+  if (id === 'rates')    renderRates();
+  if (id === 'kol')      renderKol();
+}
+
+// ── BOOT ─────────────────────────────────────────────────────
+syncSheetUrlUi();
+loadData();
+</script>
+</body>
+</html>
