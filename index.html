@@ -248,8 +248,44 @@ mark { background: #fef08a; color: var(--ink); border-radius: 2px; padding: 0 1p
   .tab-btn { font-size: 11px; padding: 7px 10px; }
 }
 </style>
+
+  <script>document.documentElement.classList.add("kol-security-pending");</script>
+  <style>
+    .kol-security-pending body > :not(#kolSecurityGate) { visibility: hidden !important; }
+    html.kol-security-locked { overflow: hidden; }
+    html.kol-security-locked body > :not(#kolSecurityGate) { visibility: hidden !important; }
+    #kolSecurityGate { position: fixed; inset: 0; z-index: 2147483647; display: grid; place-items: center; padding: 24px; background: radial-gradient(circle at 18% 15%, rgba(45,108,223,.28), transparent 34%), linear-gradient(135deg,#13233a,#223957); color: #172033; font-family: Pretendard,"Noto Sans KR","Malgun Gothic",sans-serif; }
+    #kolSecurityGate[hidden] { display: none !important; }
+    .kol-security-card { width: min(430px,100%); padding: 30px; border: 1px solid rgba(255,255,255,.48); border-radius: 22px; background: rgba(255,255,255,.97); box-shadow: 0 28px 80px rgba(5,16,34,.36); }
+    .kol-security-mark { display: grid; place-items: center; width: 48px; height: 48px; margin-bottom: 19px; border-radius: 15px; background: #eaf1ff; color: #245fc9; font-size: 22px; }
+    .kol-security-card h1 { margin: 0; font-size: 24px; letter-spacing: -.04em; }
+    .kol-security-card > p { margin: 10px 0 23px; color: #69758a; font-size: 13px; line-height: 1.65; }
+    .kol-security-card label { display: block; margin-bottom: 7px; color: #3e4b61; font-size: 12px; font-weight: 750; }
+    .kol-security-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+    #kolSecurityPassword { width: 100%; height: 44px; padding: 0 12px; border: 1px solid #ccd5e3; border-radius: 10px; font: inherit; outline: none; }
+    #kolSecurityPassword:focus { border-color: #6795e7; box-shadow: 0 0 0 4px rgba(36,95,201,.1); }
+    #kolSecuritySubmit { min-width: 86px; border: 0; border-radius: 10px; background: #245fc9; color: #fff; font: inherit; font-size: 13px; font-weight: 800; cursor: pointer; }
+    #kolSecuritySubmit:disabled { opacity: .55; cursor: wait; }
+    #kolSecurityMessage { min-height: 18px; margin: 10px 0 0; color: #c64235; font-size: 11.5px; }
+    .kol-security-note { margin-top: 18px; padding-top: 15px; border-top: 1px solid #e6eaf0; color: #8993a4; font-size: 10.5px; line-height: 1.55; }
+  </style>
 </head>
 <body>
+
+  <section id="kolSecurityGate" aria-labelledby="kolSecurityTitle">
+    <form class="kol-security-card" id="kolSecurityForm">
+      <div class="kol-security-mark" aria-hidden="true">🔒</div>
+      <h1 id="kolSecurityTitle">KOL 단가 DB 보안 확인</h1>
+      <p>내부 단가와 프로젝트 비용 정보입니다. 팀 공유 비밀번호를 입력해 주세요.</p>
+      <label for="kolSecurityPassword">접근 비밀번호</label>
+      <div class="kol-security-row">
+        <input id="kolSecurityPassword" type="password" autocomplete="current-password" required autofocus>
+        <button id="kolSecuritySubmit" type="submit">확인</button>
+      </div>
+      <p id="kolSecurityMessage" role="alert" aria-live="polite"></p>
+      <div class="kol-security-note">브라우저를 닫으면 다시 인증해야 합니다. 5회 실패하면 30초 동안 잠깁니다.</div>
+    </form>
+  </section>
 
 <!-- ══ LOADING ═══════════════════════════════════════════════════ -->
 <div class="loading-overlay" id="loading-overlay">
@@ -1074,5 +1110,77 @@ function showTab(id, btn) {
 syncSheetUrlUi();
 loadData();
 </script>
+
+  <script>
+    (() => {
+      "use strict";
+      const CONFIG = Object.freeze({ salt: "855655f11c5a20ae6d6be4fb09ae77d2", hash: "e212b3751c0d63cfccde6c9bdf01b3270af6dc3597c424ad16f4d169797b203c", iterations: 210000 });
+      const AUTH_KEY = "campaign-cost-authenticated-v1";
+      const FAIL_KEY = "campaign-cost-auth-failures-v1";
+      const LOCK_KEY = "campaign-cost-auth-lock-until-v1";
+      const gate = document.getElementById("kolSecurityGate");
+      const form = document.getElementById("kolSecurityForm");
+      const input = document.getElementById("kolSecurityPassword");
+      const submit = document.getElementById("kolSecuritySubmit");
+      const message = document.getElementById("kolSecurityMessage");
+      document.documentElement.classList.remove("kol-security-pending");
+      document.documentElement.classList.add("kol-security-locked");
+
+      const unlock = () => {
+        document.documentElement.classList.remove("kol-security-locked");
+        gate.hidden = true;
+      };
+      if (sessionStorage.getItem(AUTH_KEY) === "yes") { unlock(); return; }
+
+      const bytesToHex = bytes => [...new Uint8Array(bytes)].map(value => value.toString(16).padStart(2,"0")).join("");
+      const fromHex = hex => new Uint8Array(hex.match(/.{1,2}/g).map(byte => parseInt(byte,16)));
+      const verify = async password => {
+        const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveBits"]);
+        const bits = await crypto.subtle.deriveBits({ name:"PBKDF2", hash:"SHA-256", salt:fromHex(CONFIG.salt), iterations:CONFIG.iterations }, key, 256);
+        return bytesToHex(bits) === CONFIG.hash;
+      };
+      const lockedFor = () => Math.max(0, Number(sessionStorage.getItem(LOCK_KEY) || 0) - Date.now());
+      const refreshLock = () => {
+        const remaining = lockedFor();
+        if (!remaining) { submit.disabled = false; return; }
+        submit.disabled = true;
+        message.textContent = `인증이 잠겼습니다. ${Math.ceil(remaining / 1000)}초 후 다시 시도하세요.`;
+        setTimeout(refreshLock, 1000);
+      };
+      refreshLock();
+
+      form.addEventListener("submit", async event => {
+        event.preventDefault();
+        if (lockedFor()) return refreshLock();
+        submit.disabled = true;
+        message.textContent = "확인 중…";
+        try {
+          if (await verify(input.value)) {
+            sessionStorage.setItem(AUTH_KEY, "yes");
+            sessionStorage.removeItem(FAIL_KEY);
+            sessionStorage.removeItem(LOCK_KEY);
+            input.value = "";
+            unlock();
+            return;
+          }
+          const failures = Number(sessionStorage.getItem(FAIL_KEY) || 0) + 1;
+          sessionStorage.setItem(FAIL_KEY, String(failures));
+          input.value = "";
+          if (failures >= 5) {
+            sessionStorage.setItem(FAIL_KEY, "0");
+            sessionStorage.setItem(LOCK_KEY, String(Date.now() + 30000));
+            refreshLock();
+          } else {
+            message.textContent = `비밀번호가 맞지 않습니다. ${5 - failures}회 더 시도할 수 있습니다.`;
+            submit.disabled = false;
+            input.focus();
+          }
+        } catch (_) {
+          message.textContent = "이 브라우저에서는 보안 확인을 실행할 수 없습니다.";
+          submit.disabled = false;
+        }
+      });
+    })();
+  </script>
 </body>
 </html>
